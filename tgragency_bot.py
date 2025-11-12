@@ -1,6 +1,8 @@
+from server import app
 from telegram import Bot, Update, ParseMode, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 import logging
+from threading import Thread
 
 # === TOKEN BOT ===
 BOT_TOKEN = "8018572981:AAGN1UhKAahkRQ9RYLQcuV7pSsqh2iNIZdw"
@@ -27,18 +29,16 @@ def rules_keyboard():
     return InlineKeyboardMarkup(keyboard)
 
 # === TEKS SAMBUTAN ===
-def welcome_text(member=None):
-    if member and member.username:
-        mention = f"[{member.first_name}](tg://user?id={member.id})"
-        text = (
-            f"<b>𝗪𝗘𝗟𝗖𝗢𝗠𝗘 𝗔𝗕𝗢𝗔𝗥𝗗! 🎉 {mention}</b>\n"
-            f"<b>Selamat bergabung di TGR Agency! Ikuti panduan dan tunjukkan karya terbaikmu di sini! 🚀</b>"
-        )
+def welcome_text(member):
+    if member.username:
+        mention = f"<a href='https://t.me/{member.username}'>@{member.username}</a>"
     else:
-        text = (
-            "<b>𝗪𝗘𝗟𝗖𝗢𝗠𝗘 𝗔𝗕𝗢𝗔𝗥𝗗! 🎉</b>\n"
-            "<b>Selamat bergabung di TGR Agency! Ikuti panduan dan tunjukkan karya terbaikmu di sini! 🚀</b>"
-        )
+        mention = f"<a href='tg://user?id={member.id}'>{member.first_name}</a>"
+
+    text = (
+        f"<b>𝗪𝗘𝗟𝗖𝗢𝗠𝗘 𝗔𝗕𝗢𝗔𝗥𝗗! 🎉 {mention}</b>\n"
+        f"<b>Selamat bergabung di TGR Agency! Ikuti panduan dan tunjukkan karya terbaikmu di sini! 🚀</b>"
+    )
     return text
 
 # === AUTO WELCOME MEMBER ===
@@ -62,7 +62,10 @@ def rules_command(update: Update, context: CallbackContext):
     if user_id not in admin_ids:
         return  # Non-admin: bot diam saja
 
-    text = welcome_text(None)
+    text = (
+        "<b>📘 Daftar Rules TGR Agency</b>\n"
+        "Klik tombol di bawah untuk melihat setiap bagian panduan."
+    )
     context.bot.send_message(
         chat_id=chat_id,
         text=text,
@@ -70,50 +73,27 @@ def rules_command(update: Update, context: CallbackContext):
         reply_markup=rules_keyboard()
     )
 
-# === PERINTAH /KICK (HANYA ADMIN) ===
-def kick_member(update: Update, context: CallbackContext):
-    user_id = update.effective_user.id
-    chat_id = update.effective_chat.id
-    chat_admins = context.bot.get_chat_administrators(chat_id)
-    admin_ids = [admin.user.id for admin in chat_admins]
+# === KEEP ALIVE UNTUK REPLIT ===
+def run_flask():
+    app.run(host="0.0.0.0", port=8080)
 
-    if user_id not in admin_ids:
-        return  # Non-admin: tidak ada respon sama sekali
-
-    # Jika /kick digunakan dengan reply
-    if update.message.reply_to_message:
-        target = update.message.reply_to_message.from_user
-    elif context.args:
-        username = context.args[0].replace("@", "")
-        try:
-            member = context.bot.get_chat_member(chat_id, username)
-            target = member.user
-        except:
-            update.message.reply_text("⚠️ Tidak dapat menemukan pengguna tersebut.")
-            return
-    else:
-        update.message.reply_text("⚠️ Gunakan perintah /kick dengan membalas pesan anggota atau mention username.")
-        return
-
-    try:
-        context.bot.kick_chat_member(chat_id, target.id)
-        message = f"⚠️ <b>[{target.first_name}](tg://user?id={target.id})</b> telah dikeluarkan dari grup."
-        context.bot.send_message(chat_id=chat_id, text=message, parse_mode=ParseMode.HTML)
-    except Exception as e:
-        logging.error(f"Gagal mengeluarkan anggota: {e}")
-        update.message.reply_text("❌ Gagal mengeluarkan anggota.")
+def keep_alive():
+    t = Thread(target=run_flask)
+    t.start()
 
 # === MAIN FUNCTION ===
 def main():
+    keep_alive()
+
     updater = Updater(BOT_TOKEN, use_context=True)
     dp = updater.dispatcher
 
     dp.add_handler(MessageHandler(Filters.status_update.new_chat_members, welcome_member))
     dp.add_handler(CommandHandler("rules", rules_command))
-    dp.add_handler(CommandHandler("kick", kick_member, pass_args=True))
 
     updater.start_polling()
     updater.idle()
 
 if __name__ == "__main__":
     main()
+
