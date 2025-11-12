@@ -63,7 +63,7 @@ def rules_command(update: Update, context: CallbackContext):
         return  # Non-admin: bot diam saja
 
     text = (
-        "<b>📘 Daftar Rules TGR Agency</b>\n"
+        "<b>📌Group Guide</b>\n"
         "Klik tombol di bawah untuk melihat setiap bagian panduan."
     )
     context.bot.send_message(
@@ -96,4 +96,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
